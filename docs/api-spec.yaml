@@ -1,0 +1,732 @@
+openapi: 3.0.3
+info:
+  title: Expense Tracker API
+  description: |
+    A comprehensive expense tracking API built with Node.js, Express, and Prisma.
+    
+    ## Features
+    - JWT-based authentication with refresh tokens
+    - Complete expense CRUD operations
+    - Advanced filtering, sorting, and pagination
+    - Automatic tax calculation
+    - User isolation and security
+    
+    ## Authentication
+    This API uses JWT Bearer tokens for authentication. Include the access token in the Authorization header:
+    ```
+    Authorization: Bearer <your-access-token>
+    ```
+    
+    Access tokens expire in 15 minutes. Use the refresh token endpoint to get new tokens.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@expensetracker.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+  - url: https://your-app.render.com/api
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User's email address
+        username:
+          type: string
+          description: User's username
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+      required:
+        - id
+        - email
+        - username
+        - createdAt
+        
+    Expense:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique expense identifier
+        description:
+          type: string
+          maxLength: 500
+          description: Expense description
+        category:
+          type: string
+          enum: [FOOD, TRANSPORT, UTILITIES, ENTERTAINMENT, OTHER]
+          description: Expense category
+        isRecurring:
+          type: boolean
+          description: Whether this is a recurring expense
+        amount:
+          type: number
+          format: float
+          minimum: 0
+          description: Base expense amount
+        taxPercent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Tax percentage applied
+        totalAmount:
+          type: number
+          format: float
+          description: Total amount including tax (calculated)
+        date:
+          type: string
+          format: date
+          description: Expense date
+        createdAt:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Record last update timestamp
+        userId:
+          type: string
+          description: ID of the user who owns this expense
+      required:
+        - id
+        - description
+        - category
+        - amount
+        - totalAmount
+        - date
+        - userId
+        
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (15 minutes expiry)
+        refreshToken:
+          type: string
+          description: JWT refresh token (7 days expiry)
+      required:
+        - accessToken
+        - refreshToken
+        
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Items per page
+        total:
+          type: integer
+          description: Total number of items
+        totalPages:
+          type: integer
+          description: Total number of pages
+        hasNext:
+          type: boolean
+          description: Whether there are more pages
+        hasPrev:
+          type: boolean
+          description: Whether there are previous pages
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+        - hasNext
+        - hasPrev
+        
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: Additional error details
+      required:
+        - error
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Create a new user account with email, username, and password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                username:
+                  type: string
+                  pattern: '^[a-zA-Z0-9]+$'
+                  minLength: 3
+                  maxLength: 30
+                  description: Username (alphanumeric only)
+                password:
+                  type: string
+                  minLength: 6
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)'
+                  description: Password (must contain lowercase, uppercase, and digit)
+              required:
+                - email
+                - username
+                - password
+            example:
+              email: "john@example.com"
+              username: "johndoe"
+              password: "SecurePass123"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: Validation error or user already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/login:
+    post:
+      summary: Login user
+      description: Authenticate user with email/username and password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrUsername:
+                  type: string
+                  description: User's email or username
+                password:
+                  type: string
+                  description: User's password
+              required:
+                - emailOrUsername
+                - password
+            example:
+              emailOrUsername: "john@example.com"
+              password: "SecurePass123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Get new access and refresh tokens using a valid refresh token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Valid refresh token
+              required:
+                - refreshToken
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens:
+                    $ref: '#/components/schemas/AuthTokens'
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: Invalidate refresh tokens (logout from current or all devices)
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Specific refresh token to invalidate (optional)
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/me:
+    get:
+      summary: Get current user
+      description: Get information about the currently authenticated user
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /expenses:
+    get:
+      summary: List expenses
+      description: Get paginated list of user's expenses with filtering and sorting
+      tags:
+        - Expenses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+          description: Items per page
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [FOOD, TRANSPORT, UTILITIES, ENTERTAINMENT, OTHER]
+          description: Filter by category
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter expenses from this date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter expenses to this date
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [date, amount, totalAmount, createdAt]
+            default: date
+          description: Sort field
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Search in expense descriptions
+      responses:
+        '200':
+          description: List of expenses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expenses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Expense'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+    post:
+      summary: Create expense
+      description: Create a new expense record
+      tags:
+        - Expenses
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: Expense description
+                category:
+                  type: string
+                  enum: [FOOD, TRANSPORT, UTILITIES, ENTERTAINMENT, OTHER]
+                  description: Expense category
+                isRecurring:
+                  type: boolean
+                  default: false
+                  description: Whether this is a recurring expense
+                amount:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  description: Base expense amount
+                taxPercent:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 100
+                  default: 0
+                  description: Tax percentage
+                date:
+                  type: string
+                  format: date
+                  description: Expense date
+              required:
+                - description
+                - category
+                - amount
+                - date
+            example:
+              description: "Lunch at restaurant"
+              category: "FOOD"
+              isRecurring: false
+              amount: 25.50
+              taxPercent: 8.25
+              date: "2023-12-01"
+      responses:
+        '201':
+          description: Expense created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  expense:
+                    $ref: '#/components/schemas/Expense'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /expenses/{id}:
+    get:
+      summary: Get expense
+      description: Get a specific expense by ID
+      tags:
+        - Expenses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Expense ID
+      responses:
+        '200':
+          description: Expense details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: '#/components/schemas/Expense'
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+    put:
+      summary: Update expense
+      description: Update an existing expense
+      tags:
+        - Expenses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Expense ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                category:
+                  type: string
+                  enum: [FOOD, TRANSPORT, UTILITIES, ENTERTAINMENT, OTHER]
+                isRecurring:
+                  type: boolean
+                amount:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                taxPercent:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 100
+                date:
+                  type: string
+                  format: date
+              required:
+                - description
+                - category
+                - amount
+                - date
+      responses:
+        '200':
+          description: Expense updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  expense:
+                    $ref: '#/components/schemas/Expense'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+    delete:
+      summary: Delete expense
+      description: Delete an existing expense
+      tags:
+        - Expenses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Expense ID
+      responses:
+        '200':
+          description: Expense deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Expenses
+    description: Expense management operations
+  - name: System
+    description: System health and status
