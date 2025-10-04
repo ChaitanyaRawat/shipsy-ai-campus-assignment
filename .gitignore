@@ -13,8 +13,6 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
-
-# nyc test coverage
 .nyc_output
 
 # Environment variables
@@ -43,6 +41,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Logs
 logs
@@ -50,3 +50,18 @@ logs
 
 # Prisma
 prisma/migrations/dev.db*
+
+# Package locks
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp
+# npm package lock
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp

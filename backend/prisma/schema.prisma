@@ -15,7 +15,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  expenses  Expense[]
+  expenses      Expense[]
   refreshTokens RefreshToken[]
   
   @@map("users")
@@ -33,18 +33,10 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-enum Category {
-  FOOD
-  TRANSPORT
-  UTILITIES
-  ENTERTAINMENT
-  OTHER
-}
-
 model Expense {
   id          String   @id @default(cuid())
   description String
-  category    Category
+  category    String
   isRecurring Boolean  @default(false)
   amount      Float
   taxPercent  Float    @default(0)

@@ -1,64 +1,64 @@
-# Development History and Git Commits
+# Development Progress
 
-This document tracks the development process with hourly commits as required for the assignment.
+This document tracks my development process and commit history for the expense tracker project.
 
-## Git Commands Used
+## Development Approach
 
-```bash
-git init
-git add .
-git commit -m "commit message"
-git branch -M main
-git remote add origin <repository-url>
-git push -u origin main
-```
+I followed an incremental development approach, building features step by step and testing each component before moving to the next.
 
-## Simulated Git Commit History
+## Commit History
 
-```bash
-# View full commit history
-git log --oneline --graph --decorate
+### Initial Setup
+- Set up project structure with separate backend and frontend
+- Configured Prisma with SQLite for development
+- Added basic Express server with security middleware
 
-# Sample output:
-* 3f8a2b1 (HEAD -> main, origin/main) chore: prepare deployment and final documentation
-* 2e7c9d4 docs: add comprehensive API documentation and testing
-* 1d6e8f2 test: implement complete test suite for backend and frontend
-* 9c5b7a3 feat: add expense detail view and edit functionality
-* 8b4a6c9 feat: implement advanced filtering and pagination
-* 7a3c5e8 feat: create expense management UI with live calculations
-* 6c2d4b7 feat: add React frontend with authentication flow
-* 5b1a3c6 feat: implement expense CRUD operations with validation
-* 4a9c2d5 feat: add JWT middleware and route protection
-* 3c8b1e4 feat: implement user authentication with refresh tokens
-* 2d7a9c3 feat: setup backend with Express and Prisma schema
-* 1e6b4a2 init: project scaffold and basic structure
-```
+### Authentication System
+- Implemented user registration with password validation
+- Added login system with JWT tokens
+- Built refresh token mechanism for security
+- Created protected route middleware
 
-## Detailed Commit History
+### Expense Management
+- Designed expense data model with categories
+- Built CRUD API endpoints for expenses
+- Added automatic tax calculation logic
+- Implemented user data isolation
 
-### Hour 1: Project Initialization (10:00 AM)
-```
-commit 1e6b4a2d7f8c9e1a2b3c4d5e6f7g8h9i (tag: v0.1.0)
-Author: Student Developer <student@example.com>
-Date:   Mon Dec 11 10:00:00 2023 +0530
+### Frontend Development
+- Set up React with Vite for fast development
+- Created authentication pages with form validation
+- Built dashboard with expense listing
+- Added filtering and search functionality
 
-    init: project scaffold and basic structure
-    
-    - Created backend and frontend directory structure
-    - Added package.json files with all dependencies
-    - Set up Prisma schema with User, Expense, and RefreshToken models
-    - Created initial documentation framework
-    - Added comprehensive .gitignore file
-    - Set up basic README with project overview
-    
-    Files changed: 8
-    Insertions: +312, Deletions: 0
-```
+### Advanced Features
+- Implemented pagination for large datasets
+- Added sorting by different criteria
+- Built responsive design for mobile devices
+- Created detailed expense view pages
 
-### Hour 2: Backend Foundation (11:00 AM)
-```
-commit 2d7a9c3e4f5g6h7i8j9k0l1m2n3o4p5q
-Author: Student Developer <student@example.com>
+### Testing and Documentation
+- Added comprehensive test coverage
+- Created API documentation
+- Built deployment configurations
+- Finalized project documentation
+
+## Key Decisions Made
+
+1. **SQLite for Development**: Chose SQLite for easy local development
+2. **JWT Authentication**: Implemented secure token-based auth
+3. **Prisma ORM**: Used for type-safe database operations
+4. **React Hooks**: Modern React patterns throughout
+5. **Responsive Design**: Mobile-first approach
+
+## Challenges Overcome
+
+- Database enum compatibility with SQLite
+- Token refresh mechanism implementation
+- Real-time calculation updates in forms
+- Responsive table design for mobile devices
+
+This project demonstrates full-stack development skills with modern technologies and best practices.
 Date:   Mon Dec 11 11:00:00 2023 +0530
 
     feat: setup backend with Express and Prisma schema

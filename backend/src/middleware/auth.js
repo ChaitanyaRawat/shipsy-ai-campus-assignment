@@ -1,21 +1,21 @@
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const db = new PrismaClient();
 
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: 'Access token required' });
+      return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Verify user still exists
-    const user = await prisma.user.findUnique({
+    // Check if user still exists
+    const user = await db.user.findUnique({
       where: { id: decoded.userId },
       select: { id: true, email: true, username: true }
     });
@@ -26,14 +26,14 @@ const authenticateToken = async (req, res, next) => {
 
     req.user = user;
     next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Access token expired' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
     }
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid access token' });
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
     }
-    return res.status(500).json({ error: 'Authentication error' });
+    return res.status(500).json({ error: 'Auth error' });
   }
 };
 

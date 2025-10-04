@@ -4,13 +4,13 @@ const Joi = require('joi');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const db = new PrismaClient();
 
-// Apply authentication to all routes
+// All routes need auth
 router.use(authenticateToken);
 
-// Validation schemas
-const expenseSchema = Joi.object({
+// Validation for expense data
+const expenseValidation = Joi.object({
   description: Joi.string().trim().min(1).max(500).required(),
   category: Joi.string().valid('FOOD', 'TRANSPORT', 'UTILITIES', 'ENTERTAINMENT', 'OTHER').required(),
   isRecurring: Joi.boolean().default(false),
@@ -19,7 +19,7 @@ const expenseSchema = Joi.object({
   date: Joi.date().iso().required()
 });
 
-const querySchema = Joi.object({
+const queryValidation = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(50).default(5),
   category: Joi.string().valid('FOOD', 'TRANSPORT', 'UTILITIES', 'ENTERTAINMENT', 'OTHER'),
@@ -30,24 +30,24 @@ const querySchema = Joi.object({
   q: Joi.string().trim().max(100)
 });
 
-// Helper function to calculate total amount
-const calculateTotalAmount = (amount, taxPercent) => {
+// Calculate total with tax
+const calcTotal = (amount, taxPercent) => {
   return parseFloat((amount + (amount * taxPercent / 100)).toFixed(2));
 };
 
-// Create expense
+// Create new expense
 router.post('/', async (req, res, next) => {
   try {
-    const { error, value } = expenseSchema.validate(req.body);
-    if (error) {
-      error.isJoi = true;
-      return next(error);
+    const validation = expenseValidation.validate(req.body);
+    if (validation.error) {
+      validation.error.isJoi = true;
+      return next(validation.error);
     }
 
-    const { description, category, isRecurring, amount, taxPercent, date } = value;
-    const totalAmount = calculateTotalAmount(amount, taxPercent);
+    const { description, category, isRecurring, amount, taxPercent, date } = validation.value;
+    const totalAmount = calcTotal(amount, taxPercent);
 
-    const expense = await prisma.expense.create({
+    const newExpense = await db.expense.create({
       data: {
         description,
         category,
@@ -61,85 +61,83 @@ router.post('/', async (req, res, next) => {
     });
 
     res.status(201).json({
-      message: 'Expense created successfully',
-      expense
+      message: 'Expense created',
+      expense: newExpense
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
-// Get expenses with filtering, sorting, and pagination
+// Get expenses with filters
 router.get('/', async (req, res, next) => {
   try {
-    const { error, value } = querySchema.validate(req.query);
-    if (error) {
-      error.isJoi = true;
-      return next(error);
+    const validation = queryValidation.validate(req.query);
+    if (validation.error) {
+      validation.error.isJoi = true;
+      return next(validation.error);
     }
 
-    const { page, limit, category, dateFrom, dateTo, sortBy, order, q } = value;
+    const { page, limit, category, dateFrom, dateTo, sortBy, order, q } = validation.value;
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where = {
+    // Build filter conditions
+    const filters = {
       userId: req.user.id
     };
 
     if (category) {
-      where.category = category;
+      filters.category = category;
     }
 
     if (dateFrom || dateTo) {
-      where.date = {};
-      if (dateFrom) where.date.gte = new Date(dateFrom);
-      if (dateTo) where.date.lte = new Date(dateTo);
+      filters.date = {};
+      if (dateFrom) filters.date.gte = new Date(dateFrom);
+      if (dateTo) filters.date.lte = new Date(dateTo);
     }
 
     if (q) {
-      where.description = {
+      filters.description = {
         contains: q,
         mode: 'insensitive'
       };
     }
 
-    // Get expenses with pagination
-    const [expenses, total] = await Promise.all([
-      prisma.expense.findMany({
-        where,
+    // Get expenses and count
+    const [expenses, totalCount] = await Promise.all([
+      db.expense.findMany({
+        where: filters,
         orderBy: { [sortBy]: order },
         skip,
         take: limit
       }),
-      prisma.expense.count({ where })
+      db.expense.count({ where: filters })
     ]);
 
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(totalCount / limit);
 
     res.json({
       expenses,
       pagination: {
         page,
         limit,
-        total,
+        total: totalCount,
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
       }
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
 // Get single expense
 router.get('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const expense = await prisma.expense.findFirst({
+    const expense = await db.expense.findFirst({
       where: {
-        id,
+        id: req.params.id,
         userId: req.user.id
       }
     });
@@ -149,38 +147,37 @@ router.get('/:id', async (req, res, next) => {
     }
 
     res.json({ expense });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
 // Update expense
 router.put('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { error, value } = expenseSchema.validate(req.body);
-    if (error) {
-      error.isJoi = true;
-      return next(error);
+    const validation = expenseValidation.validate(req.body);
+    if (validation.error) {
+      validation.error.isJoi = true;
+      return next(validation.error);
     }
 
-    const { description, category, isRecurring, amount, taxPercent, date } = value;
-    const totalAmount = calculateTotalAmount(amount, taxPercent);
+    const { description, category, isRecurring, amount, taxPercent, date } = validation.value;
+    const totalAmount = calcTotal(amount, taxPercent);
 
-    // Check if expense exists and belongs to user
-    const existingExpense = await prisma.expense.findFirst({
+    // Check ownership
+    const existing = await db.expense.findFirst({
       where: {
-        id,
+        id: req.params.id,
         userId: req.user.id
       }
     });
 
-    if (!existingExpense) {
+    if (!existing) {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    const expense = await prisma.expense.update({
-      where: { id },
+    const updated = await db.expense.update({
+      where: { id: req.params.id },
       data: {
         description,
         category,
@@ -193,38 +190,36 @@ router.put('/:id', async (req, res, next) => {
     });
 
     res.json({
-      message: 'Expense updated successfully',
-      expense
+      message: 'Expense updated',
+      expense: updated
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
 // Delete expense
 router.delete('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    // Check if expense exists and belongs to user
-    const existingExpense = await prisma.expense.findFirst({
+    // Check ownership first
+    const existing = await db.expense.findFirst({
       where: {
-        id,
+        id: req.params.id,
         userId: req.user.id
       }
     });
 
-    if (!existingExpense) {
+    if (!existing) {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    await prisma.expense.delete({
-      where: { id }
+    await db.expense.delete({
+      where: { id: req.params.id }
     });
 
-    res.json({ message: 'Expense deleted successfully' });
-  } catch (error) {
-    next(error);
+    res.json({ message: 'Expense deleted' });
+  } catch (err) {
+    next(err);
   }
 });
 

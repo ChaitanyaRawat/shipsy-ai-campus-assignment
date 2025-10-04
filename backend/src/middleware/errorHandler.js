@@ -1,44 +1,45 @@
-const errorHandler = (error, req, res, next) => {
-  console.error('Error:', error);
+const errorHandler = (err, req, res, next) => {
+  console.error('Error occurred:', err);
 
-  // Prisma errors
-  if (error.code === 'P2002') {
+  // Prisma duplicate error
+  if (err.code === 'P2002') {
     return res.status(400).json({
       error: 'Duplicate entry',
-      details: 'A record with this information already exists'
+      details: 'This record already exists'
     });
   }
 
-  if (error.code === 'P2025') {
+  // Prisma record not found
+  if (err.code === 'P2025') {
     return res.status(404).json({
-      error: 'Record not found'
+      error: 'Not found'
     });
   }
 
-  // Validation errors
-  if (error.isJoi) {
+  // Joi validation errors
+  if (err.isJoi) {
     return res.status(400).json({
-      error: 'Validation error',
-      details: error.details.map(detail => detail.message)
+      error: 'Validation failed',
+      details: err.details.map(d => d.message)
     });
   }
 
   // JWT errors
-  if (error.name === 'JsonWebTokenError') {
+  if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       error: 'Invalid token'
     });
   }
 
-  if (error.name === 'TokenExpiredError') {
+  if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       error: 'Token expired'
     });
   }
 
-  // Default error
-  res.status(error.status || 500).json({
-    error: error.message || 'Internal server error'
+  // Default error response
+  res.status(err.status || 500).json({
+    error: err.message || 'Something went wrong'
   });
 };
 
