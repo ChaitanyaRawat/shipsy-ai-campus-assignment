@@ -21,7 +21,11 @@ app.use((req, res, next) => {
 // Basic security setup
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://your-frontend-app.vercel.app' // Replace with your actual Vercel frontend URL
+  ],
   credentials: true
 }));
 
@@ -55,24 +59,28 @@ app.use('*', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
-});
+// For Vercel deployment
+if (process.env.NODE_ENV !== 'production') {
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/api/health`);
+  });
 
-// Handle shutdown gracefully
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  prisma.$disconnect()
-    .then(() => {
-      server.close(() => {
-        console.log('Process terminated');
+  // Handle shutdown gracefully
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    prisma.$disconnect()
+      .then(() => {
+        server.close(() => {
+          console.log('Process terminated');
+        });
+      })
+      .catch((error) => {
+        console.error('Error during shutdown:', error);
+        process.exit(1);
       });
-    })
-    .catch((error) => {
-      console.error('Error during shutdown:', error);
-      process.exit(1);
-    });
-});
+  });
+}
 
-module.exports = { app, prisma };
+// Export for Vercel
+module.exports = app;

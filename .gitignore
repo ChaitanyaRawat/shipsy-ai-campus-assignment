@@ -21,6 +21,7 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Build outputs
 dist/
@@ -29,8 +30,7 @@ build/
 
 # Database
 *.db
-*.sqlite
-*.sqlite3
+.vercel
 
 # IDE
 .vscode/
