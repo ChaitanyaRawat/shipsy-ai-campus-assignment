@@ -4,7 +4,7 @@ const Joi = require('joi');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const db = new PrismaClient();
+const prisma = new PrismaClient();
 
 // All routes need auth
 router.use(authenticateToken);
@@ -47,7 +47,7 @@ router.post('/', async (req, res, next) => {
     const { description, category, isRecurring, amount, taxPercent, date } = validation.value;
     const totalAmount = calcTotal(amount, taxPercent);
 
-    const newExpense = await db.expense.create({
+    const newExpense = await prisma.expense.create({
       data: {
         description,
         category,
@@ -105,13 +105,13 @@ router.get('/', async (req, res, next) => {
 
     // Get expenses and count
     const [expenses, totalCount] = await Promise.all([
-      db.expense.findMany({
+      prisma.expense.findMany({
         where: filters,
         orderBy: { [sortBy]: order },
         skip,
         take: limit
       }),
-      db.expense.count({ where: filters })
+      prisma.expense.count({ where: filters })
     ]);
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -135,7 +135,7 @@ router.get('/', async (req, res, next) => {
 // Get single expense
 router.get('/:id', async (req, res, next) => {
   try {
-    const expense = await db.expense.findFirst({
+    const expense = await prisma.expense.findFirst({
       where: {
         id: req.params.id,
         userId: req.user.id
@@ -165,7 +165,7 @@ router.put('/:id', async (req, res, next) => {
     const totalAmount = calcTotal(amount, taxPercent);
 
     // Check ownership
-    const existing = await db.expense.findFirst({
+    const existing = await prisma.expense.findFirst({
       where: {
         id: req.params.id,
         userId: req.user.id
@@ -176,7 +176,7 @@ router.put('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    const updated = await db.expense.update({
+    const updated = await prisma.expense.update({
       where: { id: req.params.id },
       data: {
         description,
@@ -202,7 +202,7 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     // Check ownership first
-    const existing = await db.expense.findFirst({
+    const existing = await prisma.expense.findFirst({
       where: {
         id: req.params.id,
         userId: req.user.id
@@ -213,7 +213,7 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    await db.expense.delete({
+    await prisma.expense.delete({
       where: { id: req.params.id }
     });
 

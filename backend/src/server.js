@@ -10,19 +10,26 @@ const expenseRoutes = require('./routes/expenses');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
-const db = new PrismaClient();
+const prisma = new PrismaClient();
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, req.body);
+  next();
+});
 
 // Basic security setup
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
   credentials: true
 }));
 
 // Rate limiting - prevent spam
 const requestLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 100,
+  message: { error: 'Too many requests' }
 });
 app.use(requestLimit);
 
@@ -42,6 +49,7 @@ app.use(errorHandler);
 
 // Catch all for 404s
 app.use('*', (req, res) => {
+  console.log('404 for:', req.originalUrl);
   res.status(404).json({ error: 'Route not found' });
 });
 
@@ -49,12 +57,13 @@ const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
 
 // Handle shutdown gracefully
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
-  db.$disconnect()
+  prisma.$disconnect()
     .then(() => {
       server.close(() => {
         console.log('Process terminated');
@@ -66,4 +75,4 @@ process.on('SIGTERM', () => {
     });
 });
 
-module.exports = { app, db };
+module.exports = { app, prisma };
