@@ -14,26 +14,33 @@
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset"
   },
-  "keywords": ["expense", "tracker", "api", "nodejs"],
+  "keywords": [
+    "expense",
+    "tracker",
+    "api",
+    "nodejs"
+  ],
   "author": "Chaitanya Rawat",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.0",
+    "@types/pg": "^8.15.5",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.0",
+    "helmet": "^7.1.0",
     "joi": "^17.11.0",
-    "dotenv": "^16.3.1"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
-    "prisma": "^5.7.0",
-    "nodemon": "^3.0.2",
+    "@types/jest": "^29.5.8",
     "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "@types/jest": "^29.5.8"
+    "nodemon": "^3.0.2",
+    "prisma": "^5.7.0",
+    "supertest": "^6.3.3"
   },
   "jest": {
     "testEnvironment": "node",
@@ -42,6 +49,10 @@
       "!src/server.js"
     ],
     "coverageDirectory": "coverage",
-    "coverageReporters": ["text", "lcov", "html"]
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
   }
 }
